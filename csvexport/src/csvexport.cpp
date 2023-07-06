@@ -241,7 +241,7 @@ int main(int argc, char** argv)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    auto& slz = worker.GetSourceLocationZones();
+    auto& slz = worker.GetGpuSourceLocationZones();
     tracy::Vector<decltype(slz.begin())> slz_selected;
     slz_selected.reserve(slz.size());
 
@@ -289,6 +289,7 @@ int main(int argc, char** argv)
         std::vector<std::string> values(columns.size());
 
         values[0] = get_name(it->first, worker);
+        printf("%s\n",values[0].c_str());
 
         const auto& srcloc = worker.GetSourceLocation(it->first);
         values[1] = worker.GetString(srcloc.file);
@@ -296,57 +297,57 @@ int main(int argc, char** argv)
 
         const auto& zone_data = it->second;
 
-        if (args.unwrap)
-        {
-            int i = 0;
+        // if (args.unwrap)
+        // {
+        //     int i = 0;
             for (const auto& zone_thread_data : zone_data.zones) {
                 const auto zone_event = zone_thread_data.Zone();
                 const auto tId = zone_thread_data.Thread();
-                const auto start = zone_event->Start();
-                const auto end = zone_event->End();
+                const auto start = zone_event->GpuStart();
+                const auto end = zone_event->GpuEnd();
 
                 values[3] = std::to_string(start);
 
                 auto timespan = end - start;
-                if (args.self_time) {
-                    timespan -= GetZoneChildTimeFast(worker, *zone_event);
-                }
+                // if (args.self_time) {
+                //     timespan -= GetZoneChildTimeFast(worker, *zone_event);
+                // }
                 values[4] = std::to_string(timespan);
                 values[5] = std::to_string(tId);
 
                 std::string row = join(values, args.separator);
                 printf("%s\n", row.data());
             }
-        }
-        else
-        {
-            const auto time = args.self_time ? zone_data.selfTotal : zone_data.total;
-            values[3] = std::to_string(time);
-            values[4] = std::to_string(100. * time / last_time);
+        // }
+        // else
+        // {
+            // const auto time = args.self_time ? zone_data.selfTotal : zone_data.total;
+            // values[3] = std::to_string(time);
+            // values[4] = std::to_string(100. * time / last_time);
 
-            values[5] = std::to_string(zone_data.zones.size());
+            // values[5] = std::to_string(zone_data.zones.size());
 
-            const auto avg = (args.self_time ? zone_data.selfTotal : zone_data.total)
-                / zone_data.zones.size();
-            values[6] = std::to_string(avg);
+            // const auto avg = (args.self_time ? zone_data.selfTotal : zone_data.total)
+            //     / zone_data.zones.size();
+            // values[6] = std::to_string(avg);
 
-            const auto tmin = args.self_time ? zone_data.selfMin : zone_data.min;
-            const auto tmax = args.self_time ? zone_data.selfMax : zone_data.max;
-            values[7] = std::to_string(tmin);
-            values[8] = std::to_string(tmax);
+            // const auto tmin = args.self_time ? zone_data.selfMin : zone_data.min;
+            // const auto tmax = args.self_time ? zone_data.selfMax : zone_data.max;
+            // values[7] = std::to_string(tmin);
+            // values[8] = std::to_string(tmax);
 
-            const auto sz = zone_data.zones.size();
-            const auto ss = zone_data.sumSq
-                - 2. * zone_data.total * avg
-                + avg * avg * sz;
-            double std = 0;
-            if( sz > 1 )
-                std = sqrt(ss / (sz - 1));
-            values[9] = std::to_string(std);
+            // const auto sz = zone_data.zones.size();
+            // const auto ss = zone_data.sumSq
+            //     - 2. * zone_data.total * avg
+            //     + avg * avg * sz;
+            // double std = 0;
+            // if( sz > 1 )
+            //     std = sqrt(ss / (sz - 1));
+            // values[9] = std::to_string(std);
 
-            std::string row = join(values, args.separator);
-            printf("%s\n", row.data());
-        }
+            // std::string row = join(values, args.separator);
+            // printf("%s\n", row.data());
+        // }
     }
 
     return 0;

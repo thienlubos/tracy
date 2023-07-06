@@ -31,7 +31,14 @@ const char* TimelineItemGpu::HeaderLabel() const
     }
     else
     {
-        sprintf( buf, "%s context %i", GpuContextNames[(int)m_gpu->type], m_idx );
+        if (m_gpu->type == GpuContextType::tt_device)
+        {
+            sprintf( buf, "%s %i", GpuContextNames[(int)m_gpu->type], m_idx );
+        }
+        else
+        {
+            sprintf( buf, "%s context %i", GpuContextNames[(int)m_gpu->type], m_idx );
+        }
     }
     return buf;
 }
@@ -45,7 +52,14 @@ void TimelineItemGpu::HeaderTooltip( const char* label ) const
         ( m_gpu->type == GpuContextType::Direct3D12 );
 
     char buf[64];
-    sprintf( buf, "%s context %i", GpuContextNames[(int)m_gpu->type], m_idx );
+    if (m_gpu->type == GpuContextType::tt_device)
+    {
+        sprintf( buf, "%s %i", GpuContextNames[(int)m_gpu->type], m_idx );
+    }
+    else
+    {
+        sprintf( buf, "%s context %i", GpuContextNames[(int)m_gpu->type], m_idx );
+    }
 
     ImGui::BeginTooltip();
     if( m_gpu->name.Active() ) TextFocused( "Name:", m_worker.GetString( m_gpu->name ) );

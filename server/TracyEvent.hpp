@@ -696,6 +696,7 @@ struct ThreadData
 struct GpuCtxThreadData
 {
     Vector<short_ptr<GpuEvent>> timeline;
+    Vector<Vector<short_ptr<GpuEvent>>> timelines;
     Vector<short_ptr<GpuEvent>> stack;
 };
 

@@ -32,7 +32,7 @@ bool View::DrawGpu( const TimelineContext& ctx, const GpuCtxData& gpu, int& offs
 
     const auto singleThread = gpu.threadData.size() == 1;
     int depth = 0;
-
+    char buf[16];
     for( auto& td : gpu.threadData )
     {
         auto& tl = td.second.timeline;
@@ -51,7 +51,8 @@ bool View::DrawGpu( const TimelineContext& ctx, const GpuCtxData& gpu, int& offs
                     if( !singleThread )
                     {
                         ImGui::PushFont( m_smallFont );
-                        DrawTextContrast( draw, wpos + ImVec2( ty, offset-1-sstep ), 0xFFFFAAAA, m_worker.GetThreadName( td.first ) );
+                        sprintf(buf,"HW thread %llu", td.first);
+                        DrawTextContrast( draw, wpos + ImVec2( ty, offset-1-sstep ), 0xFFFFAAAA,  buf );
                         DrawLine( draw, dpos + ImVec2( 0, offset+sty-sstep ), dpos + ImVec2( w, offset+sty-sstep ), 0x22FFAAAA );
                         ImGui::PopFont();
                     }
@@ -78,7 +79,8 @@ bool View::DrawGpu( const TimelineContext& ctx, const GpuCtxData& gpu, int& offs
                     if( !singleThread )
                     {
                         ImGui::PushFont( m_smallFont );
-                        DrawTextContrast( draw, wpos + ImVec2( ty, offset-1-sstep ), 0xFFFFAAAA, m_worker.GetThreadName( td.first ) );
+                        sprintf(buf,"HW thread %llu", td.first);
+                        DrawTextContrast( draw, wpos + ImVec2( ty, offset-1-sstep ), 0xFFFFAAAA,  buf );
                         DrawLine( draw, dpos + ImVec2( 0, offset+sty-sstep ), dpos + ImVec2( w, offset+sty-sstep ), 0x22FFAAAA );
                         ImGui::PopFont();
                     }
