@@ -136,6 +136,11 @@ static void SetupDPIScale( float scale, ImFont*& cb_fixedWidth, ImFont*& cb_bigF
 {
     LoadFonts( scale, cb_fixedWidth, cb_bigFont, cb_smallFont );
 
+    // macOS HiDPI hack
+    ImGuiIO& io = ImGui::GetIO();
+    io.FontGlobalScale = 1.0f / dpiScale;
+    scale = 1.0f;
+
     auto& style = ImGui::GetStyle();
     style = ImGuiStyle();
     ImGui::StyleColorsDark();
