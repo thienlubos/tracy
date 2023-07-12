@@ -9,7 +9,7 @@
 #  if defined _WIN32
 #    define TRACY_SAMPLING_HZ 8000
 #  elif defined __linux__
-#    define TRACY_SAMPLING_HZ 10000
+#    define TRACY_SAMPLING_HZ 40000
 #  endif
 #endif
 
