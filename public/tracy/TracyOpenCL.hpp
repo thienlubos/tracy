@@ -33,6 +33,7 @@ using TracyCLCtx = void*;
 
 #else
 
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 #include <CL/cl.h>
 
 #include <atomic>
@@ -84,27 +85,10 @@ namespace tracy {
             , m_tail(0)
         {
             int64_t tcpu, tgpu;
-            TRACY_CL_ASSERT(m_contextId != 255);
-
-            cl_int err = CL_SUCCESS;
-            cl_command_queue queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
-            TRACY_CL_CHECK_ERROR(err)
-            uint32_t dummyValue = 42;
-            cl_mem dummyBuffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint32_t), nullptr, &err);
-            TRACY_CL_CHECK_ERROR(err)
-            cl_event writeBufferEvent;
-            TRACY_CL_CHECK_ERROR(clEnqueueWriteBuffer(queue, dummyBuffer, CL_FALSE, 0, sizeof(uint32_t), &dummyValue, 0, nullptr, &writeBufferEvent));
-            TRACY_CL_CHECK_ERROR(clWaitForEvents(1, &writeBufferEvent));
 
             tcpu = Profiler::GetTime();
+            tgpu = Profiler::GetTime()+5;
 
-            cl_int eventStatus;
-            TRACY_CL_CHECK_ERROR(clGetEventInfo(writeBufferEvent, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &eventStatus, nullptr));
-            TRACY_CL_ASSERT(eventStatus == CL_COMPLETE);
-            TRACY_CL_CHECK_ERROR(clGetEventProfilingInfo(writeBufferEvent, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &tgpu, nullptr));
-            TRACY_CL_CHECK_ERROR(clReleaseEvent(writeBufferEvent));
-            TRACY_CL_CHECK_ERROR(clReleaseMemObject(dummyBuffer));
-            TRACY_CL_CHECK_ERROR(clReleaseCommandQueue(queue));
 
             auto item = Profiler::QueueSerial();
             MemWrite(&item->hdr.type, QueueType::GpuNewContext);
@@ -149,41 +133,22 @@ namespace tracy {
                 m_head = m_tail = 0;
             }
 #endif
+            std::cout<< "h,t,q " << m_head << "," << m_tail << "," << QueryCount << std::endl;
 
             for (; m_tail != m_head; m_tail = (m_tail + 1) % QueryCount)
             {
-                EventInfo eventInfo = GetQuery(m_tail);
-                cl_int eventStatus;
-                cl_int err = clGetEventInfo(eventInfo.event, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(cl_int), &eventStatus, nullptr);
-                if (err != CL_SUCCESS)
-                {
-                    std::ostringstream oss;
-                    oss << "clGetEventInfo falied with error code " << err << ", on event " << eventInfo.event << ", skipping...";
-                    auto msg = oss.str();
-                    TracyMessage(msg.data(), msg.size());
-                    if (eventInfo.event == nullptr) {
-                        TracyMessageL("A TracyCLZone must be paird with a TracyCLZoneSetEvent, check your code!");
-                    }
-                    assert(false && "clGetEventInfo failed, maybe a TracyCLZone is not paired with TracyCLZoneSetEvent");
-                    continue;
-                }
-                if (eventStatus != CL_COMPLETE) return;
 
-                cl_int eventInfoQuery = (eventInfo.phase == EventPhase::Begin)
-                    ? CL_PROFILING_COMMAND_START
-                    : CL_PROFILING_COMMAND_END;
+                std::cout<< "in loop: h,t,q " << m_head << "," << m_tail << "," << QueryCount << std::endl;
+                static uint64_t eventTimeStamp = 0;
 
-                cl_ulong eventTimeStamp = 0;
-                err = clGetEventProfilingInfo(eventInfo.event, eventInfoQuery, sizeof(cl_ulong), &eventTimeStamp, nullptr);
-                if (err == CL_PROFILING_INFO_NOT_AVAILABLE)
+                if (eventTimeStamp == 0)
                 {
-                    TracyMessageL("command queue is not created with CL_QUEUE_PROFILING_ENABLE flag, check your code!");
-                    assert(false && "command queue is not created with CL_QUEUE_PROFILING_ENABLE flag");
+                    eventTimeStamp = Profiler::GetTime() - 50000;
                 }
                 else
-                    TRACY_CL_CHECK_ERROR(err);
-
-                TRACY_CL_ASSERT(eventTimeStamp != 0);
+                {
+                    eventTimeStamp += 500;
+                }
 
                 auto item = Profiler::QueueSerial();
                 MemWrite(&item->hdr.type, QueueType::GpuTime);
@@ -192,11 +157,6 @@ namespace tracy {
                 MemWrite(&item->gpuTime.context, m_contextId);
                 Profiler::QueueSerialFinish();
 
-                if (eventInfo.phase == EventPhase::End)
-                {
-                    // Done with the event, so release it
-                    TRACY_CL_CHECK_ERROR(clReleaseEvent(eventInfo.event));
-                }
             }
         }
 
