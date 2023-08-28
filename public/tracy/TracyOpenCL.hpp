@@ -33,9 +33,6 @@ using TracyCLCtx = void*;
 
 #else
 
-#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
-#include <CL/cl.h>
-
 #include <atomic>
 #include <cassert>
 #include <sstream>
@@ -121,16 +118,23 @@ namespace tracy {
     public:
         enum { QueryCount = 64 * 1024 };
 
-        OpenCLCtx(cl_context context, cl_device_id device)
+        OpenCLCtx()
             : m_contextId(GetGpuCtxCounter().fetch_add(1, std::memory_order_relaxed))
             , m_head(0)
             , m_tail(0)
         {
-            int64_t tcpu, tgpu;
+            ZoneScopedC(Color::Red4);
 
+            std::cout << "OpenCLCtx" << std::endl;
+
+        }
+
+        void PopulateCLContext()
+        {
+            ZoneScopedC(Color::Red);
+            int64_t tcpu, tgpu;
             tcpu = m_tcpu;
             tgpu = m_tcpu;
-
 
             auto item = Profiler::QueueSerial();
             MemWrite(&item->hdr.type, QueueType::GpuNewContext);
@@ -165,6 +169,7 @@ namespace tracy {
 
         void Collect(std::unordered_map<uint64_t,std::list<uint64_t>>& device_data)
         {
+            std::cout << "Collect" << std::endl;
             ZoneScopedC(Color::Red4);
 
             if (m_tail == m_head) return;
@@ -192,8 +197,10 @@ namespace tracy {
             for (; m_tail != m_head; m_tail = (m_tail + 1) % QueryCount)
             {
 
+                ZoneScopedNC("Add Marker", Color::Red4);
                 EventInfo eventInfo = GetQuery(m_tail);
 
+                std::cout << "t,h"<<  m_tail << m_head << std::endl;
                 uint64_t threadID = eventInfo.event.core_x*1000000+eventInfo.event.core_y*10000+eventInfo.event.risc*100; 
                 uint64_t eventID;
 
@@ -282,6 +289,7 @@ namespace tracy {
             , m_event(TTDeviceEvent ())
             , m_threadID (threadID)
         {
+            std::cout << "OpenCLCtxScope "<< ctx << " : "<< ctx->GetId() << std::endl;
             if (!m_active) return;
 
             m_beginQueryId = ctx->NextQueryId(EventInfo{ TTDeviceEvent (), EventPhase::Begin });
@@ -397,12 +405,17 @@ namespace tracy {
         unsigned int m_beginQueryId;
     };
 
-    static inline OpenCLCtx* CreateCLContext(cl_context context, cl_device_id device)
+    static inline OpenCLCtx* CreateCLContext()
     {
+        ZoneScopedC(Color::Red);
         auto ctx = (OpenCLCtx*)tracy_malloc(sizeof(OpenCLCtx));
-        new (ctx) OpenCLCtx(context, device);
+        new (ctx) OpenCLCtx();
+        char text[40];
+        int size = sprintf(text, "%d", ctx->GetId());
+        TracyMessage(text, size);
         return ctx;
     }
+
 
     static inline void DestroyCLContext(OpenCLCtx* ctx)
     {
@@ -414,7 +427,7 @@ namespace tracy {
 
 using TracyCLCtx = tracy::OpenCLCtx*;
 
-#define TracyCLContext(context, device) tracy::CreateCLContext(context, device);
+#define TracyCLContext() tracy::CreateCLContext();
 #define TracyCLDestroy(ctx) tracy::DestroyCLContext(ctx);
 #define TracyCLContextName(ctx, name, size) ctx->Name(name, size)
 #if defined TRACY_HAS_CALLSTACK && defined TRACY_CALLSTACK
