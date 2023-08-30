@@ -125,30 +125,34 @@ namespace tracy {
         {
             ZoneScopedC(Color::Red4);
 
-            std::cout << "OpenCLCtx" << std::endl;
 
         }
 
         void PopulateCLContext()
         {
             ZoneScopedC(Color::Red);
-            int64_t tcpu, tgpu;
-            tcpu = m_tcpu;
-            tgpu = m_tcpu;
+            static bool done = false;
+            if (!done)
+            {
+                int64_t tcpu, tgpu;
+                tcpu = m_tcpu;
+                tgpu = m_tcpu;
 
-            auto item = Profiler::QueueSerial();
-            MemWrite(&item->hdr.type, QueueType::GpuNewContext);
-            MemWrite(&item->gpuNewContext.cpuTime, tcpu);
-            MemWrite(&item->gpuNewContext.gpuTime, tgpu);
-            memset(&item->gpuNewContext.thread, 0, sizeof(item->gpuNewContext.thread));
-            MemWrite(&item->gpuNewContext.period, 1.0f);
-            MemWrite(&item->gpuNewContext.type, GpuContextType::tt_device);
-            MemWrite(&item->gpuNewContext.context, (uint8_t) m_contextId);
-            MemWrite(&item->gpuNewContext.flags, (uint8_t)0);
+                auto item = Profiler::QueueSerial();
+                MemWrite(&item->hdr.type, QueueType::GpuNewContext);
+                MemWrite(&item->gpuNewContext.cpuTime, tcpu);
+                MemWrite(&item->gpuNewContext.gpuTime, tgpu);
+                memset(&item->gpuNewContext.thread, 0, sizeof(item->gpuNewContext.thread));
+                MemWrite(&item->gpuNewContext.period, 1.0f);
+                MemWrite(&item->gpuNewContext.type, GpuContextType::tt_device);
+                MemWrite(&item->gpuNewContext.context, (uint8_t) m_contextId);
+                MemWrite(&item->gpuNewContext.flags, (uint8_t)0);
 #ifdef TRACY_ON_DEMAND
-            GetProfiler().DeferItem(*item);
+                GetProfiler().DeferItem(*item);
 #endif
-            Profiler::QueueSerialFinish();
+                Profiler::QueueSerialFinish();
+                done = true;
+            }
         }
 
         void Name( const char* name, uint16_t len )
@@ -169,7 +173,6 @@ namespace tracy {
 
         void Collect(std::unordered_map<uint64_t,std::list<uint64_t>>& device_data)
         {
-            std::cout << "Collect" << std::endl;
             ZoneScopedC(Color::Red4);
 
             if (m_tail == m_head) return;
@@ -185,8 +188,11 @@ namespace tracy {
 
             for (auto& data: device_data)
             {
+                //std::cout << "ID: "<<  data.first << std::endl;
                 for (auto timestamp: data.second)
                 {
+
+                    //std::cout << "    TS: "<<  timestamp << std::endl;
                     if ((shift == 0) || (shift > timestamp))
                     {
                         shift = timestamp;
@@ -200,7 +206,7 @@ namespace tracy {
                 ZoneScopedNC("Add Marker", Color::Red4);
                 EventInfo eventInfo = GetQuery(m_tail);
 
-                std::cout << "t,h"<<  m_tail << m_head << std::endl;
+                //std::cout << "t,h"<<  m_tail << m_head << std::endl;
                 uint64_t threadID = eventInfo.event.core_x*1000000+eventInfo.event.core_y*10000+eventInfo.event.risc*100; 
                 uint64_t eventID;
 
@@ -229,11 +235,13 @@ namespace tracy {
                 
                 eventID = eventID + threadID;
                 
-                if (device_data.find (eventID) != device_data.end())
+                if (device_data.find (eventID) != device_data.end() && device_data.at(eventID).size() > 0)
                 {
+                    //std::cout << "data found: " << eventID << std::endl;
                     uint64_t rawTime = device_data.at(eventID).front();
                     device_data.at(eventID).pop_front();
-                    uint64_t timestamp = (rawTime - shift)/(1.2);
+                    uint64_t timestamp = (rawTime - shift)*100000;
+                    timestamp = timestamp/(118800);
 
                     auto item = Profiler::QueueSerial();
                     MemWrite(&item->hdr.type, QueueType::GpuTime);
@@ -289,7 +297,6 @@ namespace tracy {
             , m_event(TTDeviceEvent ())
             , m_threadID (threadID)
         {
-            std::cout << "OpenCLCtxScope "<< ctx << " : "<< ctx->GetId() << std::endl;
             if (!m_active) return;
 
             m_beginQueryId = ctx->NextQueryId(EventInfo{ TTDeviceEvent (), EventPhase::Begin });
