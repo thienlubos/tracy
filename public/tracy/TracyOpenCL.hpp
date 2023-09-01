@@ -78,6 +78,7 @@ namespace tracy {
 
     static inline void set_cpu_time()
     {
+        ZoneScoped;
         if ( m_tcpu == 1)
         {
             m_tcpu = Profiler::GetTime();
