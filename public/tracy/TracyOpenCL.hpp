@@ -70,6 +70,7 @@ namespace tracy {
 
     static inline void enable_set_cpu_time()
     {
+        ZoneScoped;
         if ( m_tcpu == 0)
         {
             m_tcpu = 1;
@@ -241,8 +242,8 @@ namespace tracy {
                     //std::cout << "data found: " << eventID << std::endl;
                     uint64_t rawTime = device_data.at(eventID).front();
                     device_data.at(eventID).pop_front();
-                    uint64_t timestamp = (rawTime - shift)*100000;
-                    timestamp = timestamp/(118800);
+                    uint64_t timestamp = (rawTime - shift)*1000;
+                    timestamp = timestamp/(1202);
 
                     auto item = Profiler::QueueSerial();
                     MemWrite(&item->hdr.type, QueueType::GpuTime);
