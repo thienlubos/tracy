@@ -126,8 +126,6 @@ namespace tracy {
             , m_tail(0)
         {
             ZoneScopedC(Color::Red4);
-
-
         }
 
         void PopulateCLContext()
@@ -173,7 +171,7 @@ namespace tracy {
             Profiler::QueueSerialFinish();
         }
 
-        void Collect(std::unordered_map<uint64_t,std::list<uint64_t>>& device_data)
+        void Collect(std::map<uint64_t,std::list<uint64_t>>& device_data)
         {
             ZoneScopedC(Color::Red4);
 
@@ -190,11 +188,8 @@ namespace tracy {
 
             for (auto& data: device_data)
             {
-                //std::cout << "ID: "<<  data.first << std::endl;
                 for (auto timestamp: data.second)
                 {
-
-                    //std::cout << "    TS: "<<  timestamp << std::endl;
                     if ((shift == 0) || (shift > timestamp))
                     {
                         shift = timestamp;
@@ -202,44 +197,44 @@ namespace tracy {
                 }
             }
 
+            std::string riscName[] = {"BRISC", "NCRISC", "TRISC_0", "TRISC_1", "TRISC_2"};
             for (; m_tail != m_head; m_tail = (m_tail + 1) % QueryCount)
             {
 
                 ZoneScopedNC("Add Marker", Color::Red4);
                 EventInfo eventInfo = GetQuery(m_tail);
 
-                //std::cout << "t,h"<<  m_tail << m_head << std::endl;
                 uint64_t threadID = eventInfo.event.core_x*1000000+eventInfo.event.core_y*10000+eventInfo.event.risc*100; 
                 uint64_t eventID;
+                uint64_t marker;
 
                 if (eventInfo.phase == EventPhase::Begin)
                 {
                     if (eventInfo.event.marker == 1)
                     {
-                        eventID = 1;
+                        marker = 1;
                     }
                     else
                     {
-                        eventID = 2;
+                        marker = 2;
                     }
                 }
                 else
                 {
                     if (eventInfo.event.marker == 1)
                     {
-                        eventID = 4;
+                        marker = 4;
                     }
                     else
                     {
-                        eventID = 3;
+                        marker = 3;
                     }
                 }
                 
-                eventID = eventID + threadID;
+                eventID = marker + threadID;
                 
                 if (device_data.find (eventID) != device_data.end() && device_data.at(eventID).size() > 0)
                 {
-                    //std::cout << "data found: " << eventID << std::endl;
                     uint64_t rawTime = device_data.at(eventID).front();
                     device_data.at(eventID).pop_front();
                     uint64_t timestamp = (rawTime - shift)*1000;
@@ -247,7 +242,7 @@ namespace tracy {
 
                     auto item = Profiler::QueueSerial();
                     MemWrite(&item->hdr.type, QueueType::GpuTime);
-                    MemWrite(&item->gpuTime.gpuTime, (int64_t)(timestamp + m_tcpu));
+                    MemWrite(&item->gpuTime.gpuTime, (uint64_t)(timestamp + m_tcpu));
                     MemWrite(&item->gpuTime.queryId, (uint16_t)m_tail);
                     MemWrite(&item->gpuTime.context, m_contextId);
                     Profiler::QueueSerialFinish();
@@ -301,6 +296,7 @@ namespace tracy {
         {
             if (!m_active) return;
 
+            ZoneScoped;
             m_beginQueryId = ctx->NextQueryId(EventInfo{ TTDeviceEvent (), EventPhase::Begin });
 
             auto item = Profiler::QueueSerial();
@@ -313,84 +309,10 @@ namespace tracy {
             Profiler::QueueSerialFinish();
         }
 
-        tracy_force_inline OpenCLCtxScope(OpenCLCtx* ctx, const SourceLocationData* srcLoc, int depth, bool is_active)
-#ifdef TRACY_ON_DEMAND
-            : m_active(is_active&& GetProfiler().IsConnected())
-#else
-            : m_active(is_active)
-#endif
-            , m_ctx(ctx)
-            , m_event(TTDeviceEvent ())
-        {
-            if (!m_active) return;
-
-            m_beginQueryId = ctx->NextQueryId(EventInfo{ TTDeviceEvent (), EventPhase::Begin });
-
-            GetProfiler().SendCallstack(depth);
-
-            auto item = Profiler::QueueSerial();
-            MemWrite(&item->hdr.type, QueueType::GpuZoneBeginCallstackSerial);
-            MemWrite(&item->gpuZoneBegin.cpuTime, Profiler::GetTime());
-            MemWrite(&item->gpuZoneBegin.srcloc, (uint64_t)srcLoc);
-            MemWrite(&item->gpuZoneBegin.thread, 56);
-            MemWrite(&item->gpuZoneBegin.queryId, (uint16_t)m_beginQueryId);
-            MemWrite(&item->gpuZoneBegin.context, ctx->GetId());
-            Profiler::QueueSerialFinish();
-        }
-
-        tracy_force_inline OpenCLCtxScope(OpenCLCtx* ctx, uint32_t line, const char* source, size_t sourceSz, const char* function, size_t functionSz, const char* name, size_t nameSz, bool is_active)
-#ifdef TRACY_ON_DEMAND
-            : m_active(is_active && GetProfiler().IsConnected())
-#else
-            : m_active(is_active)
-#endif
-            , m_ctx(ctx)
-            , m_event(TTDeviceEvent ())
-        {
-            if (!m_active) return;
-
-            m_beginQueryId = ctx->NextQueryId(EventInfo{ TTDeviceEvent (), EventPhase::Begin });
-
-            const auto srcloc = Profiler::AllocSourceLocation( line, source, sourceSz, function, functionSz, name, nameSz );
-            auto item = Profiler::QueueSerial();
-            MemWrite( &item->hdr.type, QueueType::GpuZoneBeginAllocSrcLocSerial );
-            MemWrite(&item->gpuZoneBegin.cpuTime, Profiler::GetTime());
-            MemWrite(&item->gpuZoneBegin.srcloc, srcloc);
-            MemWrite(&item->gpuZoneBegin.thread, 56);
-            MemWrite(&item->gpuZoneBegin.queryId, (uint16_t)m_beginQueryId);
-            MemWrite(&item->gpuZoneBegin.context, ctx->GetId());
-            Profiler::QueueSerialFinish();
-        }
-
-        tracy_force_inline OpenCLCtxScope(OpenCLCtx* ctx, uint32_t line, const char* source, size_t sourceSz, const char* function, size_t functionSz, const char* name, size_t nameSz, int depth, bool is_active)
-#ifdef TRACY_ON_DEMAND
-            : m_active(is_active && GetProfiler().IsConnected())
-#else
-            : m_active(is_active)
-#endif
-            , m_ctx(ctx)
-            , m_event(TTDeviceEvent ())
-        {
-            if (!m_active) return;
-
-            m_beginQueryId = ctx->NextQueryId(EventInfo{ TTDeviceEvent (), EventPhase::Begin });
-
-            const auto srcloc = Profiler::AllocSourceLocation( line, source, sourceSz, function, functionSz, name, nameSz );
-            auto item = Profiler::QueueSerialCallstack( Callstack( depth ) );
-            MemWrite(&item->hdr.type, QueueType::GpuZoneBeginAllocSrcLocCallstackSerial);
-            MemWrite(&item->gpuZoneBegin.cpuTime, Profiler::GetTime());
-            MemWrite(&item->gpuZoneBegin.srcloc, srcloc);
-            MemWrite(&item->gpuZoneBegin.thread, 56);
-            MemWrite(&item->gpuZoneBegin.queryId, (uint16_t)m_beginQueryId);
-            MemWrite(&item->gpuZoneBegin.context, ctx->GetId());
-            Profiler::QueueSerialFinish();
-        }
-
         tracy_force_inline void SetEvent(TTDeviceEvent event)
         {
             if (!m_active) return;
             m_event = event;
-            //TRACY_CL_CHECK_ERROR(clRetainEvent(m_event));
             m_ctx->GetQuery(m_beginQueryId).event = m_event;
         }
 
