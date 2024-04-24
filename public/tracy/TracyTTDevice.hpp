@@ -67,7 +67,7 @@ namespace tracy {
     class TTCtx
     {
     public:
-        enum { QueryCount = 64 * 1024 };
+        enum { QueryCount = 1024 * 1024 };
 
         TTCtx()
             : m_contextId(GetGpuCtxCounter().fetch_add(1, std::memory_order_relaxed))
@@ -116,7 +116,7 @@ namespace tracy {
             return m_contextId;
         }
 
-        tracy_force_inline unsigned int NextQueryId(EventInfo eventInfo)
+        tracy_force_inline uint32_t NextQueryId(EventInfo eventInfo)
         {
             const auto id = m_head;
             m_head = (m_head + 1) % QueryCount;
@@ -159,14 +159,14 @@ namespace tracy {
             MemWrite(&zoneBegin->gpuZoneBegin.cpuTime, Profiler::GetTime());
             MemWrite(&zoneBegin->gpuZoneBegin.srcloc, srcloc);
             MemWrite(&zoneBegin->gpuZoneBegin.thread, (uint32_t)event.get_thread_id());
-            MemWrite(&zoneBegin->gpuZoneBegin.queryId, (uint16_t)queryId);
+            MemWrite(&zoneBegin->gpuZoneBegin.queryId, (uint32_t)queryId);
             MemWrite(&zoneBegin->gpuZoneBegin.context, this->GetId());
             Profiler::QueueSerialFinish();
 
             auto zoneTime = Profiler::QueueSerial();
             MemWrite(&zoneTime->hdr.type, QueueType::GpuTime);
-            MemWrite(&zoneTime->gpuTime.gpuTime, (uint64_t)event.timestamp);
-            MemWrite(&zoneTime->gpuTime.queryId, (uint16_t)queryId);
+            MemWrite(&zoneTime->gpuTime.gpuTime, (uint64_t)round((double)event.timestamp/m_frequency));
+            MemWrite(&zoneTime->gpuTime.queryId, (uint32_t)queryId);
             MemWrite(&zoneTime->gpuTime.context, this->GetId());
             Profiler::QueueSerialFinish();
         }
@@ -179,14 +179,14 @@ namespace tracy {
             MemWrite(&zoneEnd->hdr.type, QueueType::GpuZoneEndSerial);
             MemWrite(&zoneEnd->gpuZoneEnd.cpuTime, Profiler::GetTime());
             MemWrite(&zoneEnd->gpuZoneEnd.thread, (uint32_t)event.get_thread_id());
-            MemWrite(&zoneEnd->gpuZoneEnd.queryId, (uint16_t)queryId);
+            MemWrite(&zoneEnd->gpuZoneEnd.queryId, (uint32_t)queryId);
             MemWrite(&zoneEnd->gpuZoneEnd.context, this->GetId());
             Profiler::QueueSerialFinish();
             
             auto zoneTime = Profiler::QueueSerial();
             MemWrite(&zoneTime->hdr.type, QueueType::GpuTime);
-            MemWrite(&zoneTime->gpuTime.gpuTime, (uint64_t)event.timestamp);
-            MemWrite(&zoneTime->gpuTime.queryId, (uint16_t)queryId);
+            MemWrite(&zoneTime->gpuTime.gpuTime, (uint64_t)round((double)event.timestamp/m_frequency));
+            MemWrite(&zoneTime->gpuTime.queryId, (uint32_t)queryId);
             MemWrite(&zoneTime->gpuTime.context, this->GetId());
             Profiler::QueueSerialFinish();
         }
@@ -196,8 +196,8 @@ namespace tracy {
         uint16_t m_contextId;
 
         EventInfo m_query[QueryCount];
-        unsigned int m_head; // index at which a new event should be inserted
-        unsigned int m_tail; // oldest event
+        uint32_t m_head; // index at which a new event should be inserted
+        uint32_t m_tail; // oldest event
 
     };
 
