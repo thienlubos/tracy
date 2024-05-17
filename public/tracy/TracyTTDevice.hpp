@@ -180,7 +180,7 @@ namespace tracy {
 
             int color;
 
-            if (event.zone_name.find("SYNC") != std::string::npos)
+            if (event.zone_name.find("PROFILER") != std::string::npos)
             {
                 color = tracy::Color::Tomato3;
             }
