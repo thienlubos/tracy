@@ -39,8 +39,8 @@ endif()
 
 if(EMSCRIPTEN)
     add_compile_options(-pthread)
-    add_link_options(-pthread)
 endif()
+add_link_options(-pthread)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     find_program(MOLD_LINKER mold)
