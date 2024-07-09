@@ -3,7 +3,7 @@
 
 namespace tracy
 {
-    static std::string riscName[] = {"BRISC", "NCRISC", "TRISC_0", "TRISC_1", "TRISC_2", "ERISC"};
+    static std::string riscName[] = {"BRISC", "NCRISC", "TRISC_0", "TRISC_1", "TRISC_2", "ERISC", "TENSIX"};
 
     enum TTDeviceEventPhase
     {

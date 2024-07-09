@@ -337,6 +337,7 @@ void View::DrawStatistics()
             {
                 if( it->second.total != 0 && it->second.min <= st )
                 {
+                    std::string test(m_worker.GetZoneName( m_worker.GetSourceLocation( it->first) ));
                     if( !filterActive )
                     {
                         auto cit = m_gpuStatCache.find( it->first );

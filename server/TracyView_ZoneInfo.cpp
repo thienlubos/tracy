@@ -1960,6 +1960,8 @@ void View::ZoneTooltip( const GpuEvent& ev )
         TextFocused( "Delay to execution:", TimeToString( AdjustGpuTime( ev.GpuStart(), begin, drift ) - ev.CpuStart() ) );
     }
 
+    ImGui::NewLine();
+    TextColoredUnformatted( ImVec4( 0xCC / 255.f, 0xCC / 255.f, 0x22 / 255.f, 1.f ), "TESTING" );
     ImGui::EndTooltip();
 }
 

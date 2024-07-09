@@ -15,6 +15,11 @@ TimelineItemGpu::TimelineItemGpu( View& view, Worker& worker, GpuCtxData* gpu )
     , m_gpu( gpu )
     , m_idx( view.GetNextGpuIdx() )
 {
+    std::string itmeName (m_worker.GetString( m_gpu->name ));
+    if ((m_gpu->type == GpuContextType::tt_device) && (itmeName.find("Core") != std::string::npos))
+    {
+        SetVisible( false );
+    }
 }
 
 bool TimelineItemGpu::IsEmpty() const
