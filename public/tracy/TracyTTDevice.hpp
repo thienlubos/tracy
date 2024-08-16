@@ -173,7 +173,7 @@ namespace tracy {
                 tracy::Color::SkyBlue3,
                 tracy::Color::Turquoise2,
                 tracy::Color::CadetBlue1,
-                tracy::Color::Yellow3
+                tracy::Color::Honeydew4
             };
 
             const auto queryId = this->NextQueryId(EventInfo{ event, EventPhase::Begin });
