@@ -59,6 +59,7 @@
 
 #include "Backend.hpp"
 #include "ConnectionHistory.hpp"
+#include "LoadingHistory.hpp"
 #include "Filters.hpp"
 #include "Fonts.hpp"
 #include "HttpRequest.hpp"
@@ -92,8 +93,9 @@ static std::unique_ptr<tracy::UdpListen> broadcastListen;
 static std::mutex resolvLock;
 static tracy::unordered_flat_map<std::string, std::string> resolvMap;
 static ResolvService resolv( port );
-static char addr[1024] = { "127.0.0.1" };
+static char addr[1024] = { "127.0.0.1:8086" };
 static ConnectionHistory* connHist;
+static LoadingHistory* loadHist;
 static std::atomic<ViewShutdown> viewShutdown { ViewShutdown::False };
 static double animTime = 0;
 static float dpiScale = 1.f;
@@ -186,6 +188,8 @@ static void LoadConfig()
     int v;
     if( ini_sget( ini, "core", "threadedRendering", "%d", &v ) ) s_config.threadedRendering = v;
     if( ini_sget( ini, "timeline", "targetFps", "%d", &v ) && v >= 1 && v < 10000 ) s_config.targetFps = v;
+    const char* getSaveDir = ini_get( ini, "save", "saveDir");
+    if( getSaveDir ) s_config.saveDir = strdup(getSaveDir);
 
     ini_free( ini );
 }
@@ -201,6 +205,9 @@ static bool SaveConfig()
 
     fprintf( f, "\n[timeline]\n" );
     fprintf( f, "targetFps = %i\n", s_config.targetFps );
+
+    fprintf( f, "\n[save]\n" );
+    fprintf( f, "saveDir = %c\n", s_config.saveDir);
 
     fclose( f );
     return true;
@@ -309,9 +316,11 @@ int main( int argc, char** argv )
     }
 
     ConnectionHistory connHistory;
+    LoadingHistory loadHistory;
     Filters filters;
 
     connHist = &connHistory;
+    loadHist = &loadHistory;
     filt = &filters;
 
 #ifndef __EMSCRIPTEN__
@@ -663,7 +672,52 @@ static void DrawContents()
                 if( ImGui::InputInt( "##targetfps", &tmp ) ) { s_config.targetFps = std::clamp( tmp, 1, 9999 ); SaveConfig(); }
                 ImGui::PopStyleVar();
                 ImGui::TreePop();
+
+                ImGui::Spacing();
+                ImGui::TextUnformatted( "Save Directory" );
+                ImGui::SameLine();
+                char* saveDir = s_config.saveDir;
+                bool saveDirClicked = false;
+                bool showSaveDirNotExistModal = false;
+                ImGui::SetNextItemWidth( 90 * dpiScale );
+                saveDirClicked |= ImGui::InputTextWithHint( "###saveDir", "Save directory path", saveDir, 1024, ImGuiInputTextFlags_EnterReturnsTrue );
+                ImGui::SameLine();
+                saveDirClicked |= ImGui::Button( ICON_FA_CIRCLE " Update path" );
+                if (saveDirClicked && !loadThread.joinable())
+                {
+                    // Preprocess the tracyFilePath to remove unwanted characters and trim spaces
+                    std::string processedSaveDir = PreprocessFilePath(saveDir);
+
+                    // Copy the processed path back to the original buffer if required
+                    strncpy(saveDir, processedSaveDir.c_str(), sizeof(saveDir));
+
+                    // Check if file path is empty
+                    if (!std::filesystem::exists(tracyFilePath))
+                    { 
+                        showSaveDirNotExistModal = true; 
+                    }
+                    else
+                    { 
+                        s_config.saveDir = saveDir; SaveConfig();  
+                    }
+            
+                // Modal for file not found warning
+                if (showSaveDirNotExistModal)
+                {
+                    ImGui::OpenPopup("Directory Not Found");
+                }
+                if (ImGui::BeginPopupModal("Directory Not Found", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+                {
+                    ImGui::Text("The directory path you specified does not exist.");
+                    if (ImGui::Button("OK"))
+                    {
+                        ImGui::CloseCurrentPopup();
+                        showSaveDirNotExistModal = false;
+                    }
+                    ImGui::EndPopup();
+                }
             }
+
             ImGui::Separator();
             ImGui::PushFont( s_smallFont );
             tracy::TextFocused( "Protocol version", tracy::RealToString( tracy::ProtocolVersion ) );
