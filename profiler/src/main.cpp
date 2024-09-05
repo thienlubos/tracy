@@ -13,6 +13,8 @@
 #include <memory>
 #include <sys/stat.h>
 #include <locale.h>
+#include <filesystem>   //@@ Thien Lu
+#include <cctype>       //@@ Thien Lu
 
 #ifdef _WIN32
 #  include <windows.h>
@@ -113,6 +115,7 @@ static Backend* bptr;
 static bool s_customTitle = false;
 static bool s_isElevated = false;
 static tracy::Config s_config;
+static char tracyFilePath[1024] = { " " };   //@@ Thien Lu 
 
 static void SetWindowTitleCallback( const char* title )
 {
@@ -211,6 +214,32 @@ static void ScaleChanged( float scale )
     dpiScale = scale;
     SetupDPIScale();
 }
+
+// Utility function to preprocess tracyFilePath by removing unwanted characters and trimming spaces
+
+//@@ Thien Lu
+static std::string PreprocessFilePath(const std::string& filePath)
+{
+    std::string processedPath = filePath;
+
+    // Remove unwanted characters: ' " `
+    processedPath.erase(std::remove_if(processedPath.begin(), processedPath.end(),
+                                        [](unsigned char c) { return c == '\'' || c == '"' || c == '`'; }),
+                        processedPath.end());
+
+    // Trim leading spaces
+    processedPath.erase(processedPath.begin(), std::find_if(processedPath.begin(), processedPath.end(),
+                                                            [](unsigned char c) { return !std::isspace(c); }));
+
+    // Trim trailing spaces
+    processedPath.erase(std::find_if(processedPath.rbegin(), processedPath.rend(),
+                                    [](unsigned char c) { return !std::isspace(c); }).base(),
+                        processedPath.end());
+
+    return processedPath;
+}
+//@@ Thien Lu
+
 
 int main( int argc, char** argv )
 {
@@ -779,6 +808,115 @@ static void DrawContents()
                 ImGui::EndCombo();
             }
         }
+
+
+
+        //@@ Thien Lu add tracy file path - START
+
+        // Tracy file path input
+        ImGui::Spacing();
+        ImGui::TextUnformatted( "Tracy file path" );
+        bool loadFileClicked = false;
+        bool showFilePathWarningModal = false;
+        bool showFileNotExistModal = false;
+        loadFileClicked |= ImGui::InputTextWithHint( "###tracyfilepath", "Enter Tracy file path", tracyFilePath, 1024, ImGuiInputTextFlags_EnterReturnsTrue );
+        ImGui::SameLine();
+        loadFileClicked |= ImGui::Button( ICON_FA_FOLDER_OPEN " Open Trace" );
+
+        // If the "Open" button is clicked and a file path is provided, attempt to open the file
+        if (loadFileClicked && !loadThread.joinable())
+        {
+            // Preprocess the tracyFilePath to remove unwanted characters and trim spaces
+            std::string processedFilePath = PreprocessFilePath(tracyFilePath);
+
+            // Copy the processed path back to the original buffer if required
+            strncpy(tracyFilePath, processedFilePath.c_str(), sizeof(tracyFilePath));
+
+            // Check if file path is empty
+            if (tracyFilePath[0] == '\0')
+            {
+                showFilePathWarningModal = true; // Trigger modal for empty file path
+            }
+            else if (!std::filesystem::exists(tracyFilePath))
+            {
+                showFileNotExistModal = true; // Trigger modal for file not found
+            }
+            else
+            {
+                // Try to open the file if it exists
+                try
+                {
+                    auto f = std::shared_ptr<tracy::FileRead>( tracy::FileRead::Open( tracyFilePath ) );
+                    if( f )
+                    {
+                        loadThread = std::thread( [f] {
+                            try
+                            {
+                                view = std::make_unique<tracy::View>( RunOnMainThread, *f, s_fixedWidth, s_smallFont, s_bigFont, SetWindowTitleCallback, SetupScaleCallback, AttentionCallback, s_config );
+                            }
+                            catch( const tracy::UnsupportedVersion& e )
+                            {
+                                badVer.state = tracy::BadVersionState::UnsupportedVersion;
+                                badVer.version = e.version;
+                            }
+                            catch( const tracy::LegacyVersion& e )
+                            {
+                                badVer.state = tracy::BadVersionState::LegacyVersion;
+                                badVer.version = e.version;
+                            }
+                            catch( const tracy::LoadFailure& e )
+                            {
+                                badVer.state = tracy::BadVersionState::LoadFailure;
+                                badVer.msg = e.msg;
+                            }
+                        } );
+                    }
+                }
+                catch( const tracy::NotTracyDump& )
+                {
+                    badVer.state = tracy::BadVersionState::BadFile;
+                }
+                catch( const tracy::FileReadError& )
+                {
+                    badVer.state = tracy::BadVersionState::ReadError;
+                }
+            }
+        }
+
+        // Modal for empty file path warning
+        if (showFilePathWarningModal)
+        {
+            ImGui::OpenPopup("File Path Warning");
+        }
+        if (ImGui::BeginPopupModal("File Path Warning", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::Text("You must specify a file to open.");
+            if (ImGui::Button("OK"))
+            {
+                ImGui::CloseCurrentPopup();
+                showFilePathWarningModal = false;
+            }
+            ImGui::EndPopup();
+        }
+
+        // Modal for file not found warning
+        if (showFileNotExistModal)
+        {
+            ImGui::OpenPopup("File Not Found");
+        }
+        if (ImGui::BeginPopupModal("File Not Found", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::Text("The file path you specified does not exist.");
+            if (ImGui::Button("OK"))
+            {
+                ImGui::CloseCurrentPopup();
+                showFileNotExistModal = false;
+            }
+            ImGui::EndPopup();
+        }
+        //@@ Thien Lu add tracy file path - END
+
+        
         connectClicked |= ImGui::Button( ICON_FA_WIFI " Connect" );
         if( connectClicked && *addr && !loadThread.joinable() )
         {

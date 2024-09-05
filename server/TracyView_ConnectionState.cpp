@@ -1,3 +1,5 @@
+#include <filesystem> //@@ Thien Lu
+
 #include "TracyFileselector.hpp"
 #include "TracyImGui.hpp"
 #include "TracyPrint.hpp"
@@ -10,6 +12,9 @@ namespace tracy
 constexpr size_t SendQueueEnableThreshold = 1000000;
 constexpr size_t SendQueueDisableThreshold = 500000;
 constexpr int64_t SendQueueTimespanMs = 10000;  // 10 s
+static std::thread loadThread;              //@@ Thien Lu 
+static char saveFilePath[1024] = { " " };   //@@ Thien Lu 
+
 
 bool View::DrawConnection()
 {
@@ -117,7 +122,118 @@ bool View::DrawConnection()
             ImGui::Image( m_frameTextureConn, ImVec2( fi->w * fiScale, fi->h * fiScale ) );
         }
     }
+    //@@ Thien Lu add save trace - START
+    
+    
+    // Save trace file path input
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::TextUnformatted("Save Tracy file path");
+    bool saveFileClicked = false;
+    bool showSaveFilePathWarningModal = false;
+    bool showSaveFileFailedModal = false;
+    bool showSaveSuccessModal = false;
 
+    saveFileClicked |= ImGui::InputTextWithHint("###savefilepath", "Enter file path to save trace", saveFilePath, 1024, ImGuiInputTextFlags_EnterReturnsTrue);
+    ImGui::SameLine();
+    saveFileClicked |= ImGui::Button(ICON_FA_FLOPPY_DISK " Save");
+
+    // Check if the "Save" button is clicked and a file path is provided
+    if (saveFileClicked && !loadThread.joinable())
+    {
+        // Check if file path is empty
+        if (saveFilePath[0] == '\0')
+        {
+            showSaveFilePathWarningModal = true;  // Trigger modal for empty file path
+        }
+        else
+        {
+            try
+            {
+                auto cb = [this]( const char* fn ) {
+                    const auto sz = strlen( fn );
+                    if( sz < 7 || memcmp( fn + sz - 6, ".tracy", 6 ) != 0 )
+                    {
+                        char tmp[1024];
+                        sprintf( tmp, "%s.tracy", fn );
+                        m_filenameStaging = tmp;
+                    }
+                    else
+                    {
+                        m_filenameStaging = fn;
+                    }
+                };
+                
+                // Here, you would implement the logic to save the trace to the specified file path
+                cb(saveFilePath);  // Hypothetical function to save trace
+                
+                // if (saveSuccessful)
+                // {
+                //     showSaveSuccessModal = true;  // Trigger success modal if save is successful
+                // }
+                // else
+                // {
+                //     showSaveFileFailedModal = true;  // Trigger failed modal if save fails
+                // }
+            }
+            catch (const std::exception &e)
+            {
+                // Handle any errors during the save operation
+                showSaveFileFailedModal = true;
+            }
+        }
+    }
+
+    // Modal for empty file path warning
+    if (showSaveFilePathWarningModal)
+    {
+        ImGui::OpenPopup("Save File Path Warning");
+    }
+    if (ImGui::BeginPopupModal("Save File Path Warning", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("You must specify a file path to save the trace.");
+        if (ImGui::Button("OK"))
+        {
+            ImGui::CloseCurrentPopup();
+            showSaveFilePathWarningModal = false;
+        }
+        ImGui::EndPopup();
+    }
+
+    // Modal for save failed warning
+    if (showSaveFileFailedModal)
+    {
+        ImGui::OpenPopup("Save Failed");
+    }
+    if (ImGui::BeginPopupModal("Save Failed", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Failed to save the trace file.");
+        ImGui::Text("Please check the file path and try again.");
+        if (ImGui::Button("OK"))
+        {
+            ImGui::CloseCurrentPopup();
+            showSaveFileFailedModal = false;
+        }
+        ImGui::EndPopup();
+    }
+
+    // Modal for save success message
+    if (showSaveSuccessModal)
+    {
+        ImGui::OpenPopup("Save Successful");
+    }
+    if (ImGui::BeginPopupModal("Save Successful", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Trace file saved successfully.");
+        if (ImGui::Button("OK"))
+        {
+            ImGui::CloseCurrentPopup();
+            showSaveSuccessModal = false;
+        }
+        ImGui::EndPopup();
+    }
+    //@@ Thien Lu add save trace - END
+    
     ImGui::Separator();
     if( ImGui::Button( ICON_FA_FLOPPY_DISK " Save trace" ) && m_saveThreadState.load( std::memory_order_relaxed ) == SaveThreadState::Inert )
     {
