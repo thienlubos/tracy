@@ -59,7 +59,6 @@
 
 #include "Backend.hpp"
 #include "ConnectionHistory.hpp"
-#include "LoadingHistory.hpp"
 #include "Filters.hpp"
 #include "Fonts.hpp"
 #include "HttpRequest.hpp"
@@ -95,7 +94,6 @@ static tracy::unordered_flat_map<std::string, std::string> resolvMap;
 static ResolvService resolv( port );
 static char addr[1024] = { "127.0.0.1:8086" };
 static ConnectionHistory* connHist;
-static LoadingHistory* loadHist;
 static std::atomic<ViewShutdown> viewShutdown { ViewShutdown::False };
 static double animTime = 0;
 static float dpiScale = 1.f;
@@ -316,11 +314,9 @@ int main( int argc, char** argv )
     }
 
     ConnectionHistory connHistory;
-    LoadingHistory loadHistory;
     Filters filters;
 
     connHist = &connHistory;
-    loadHist = &loadHistory;
     filt = &filters;
 
 #ifndef __EMSCRIPTEN__
