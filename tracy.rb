@@ -1,7 +1,7 @@
 class Tracy < Formula
   desc "Real-time, nanosecond resolution frame profiler"
   homepage "https://github.com/wolfpld/tracy"
-  url "https://github.com/tenstorrent-metal/tracy/archive/refs/tags/v0.10-tt.0.tar.gz"
+  url "https://github.com/thienlubos/tracy/archive/refs/tags/v0.10-tt.0-g363e792e.tar.gz"
   sha256 "d6a73c51bd6ba10cdd7acb7ccab5fe2ecf44295f481419913228b9ad76908535"
   license "BSD-3-Clause"
   revision 1
