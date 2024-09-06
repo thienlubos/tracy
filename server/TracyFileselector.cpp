@@ -40,6 +40,16 @@ bool HasFailed()
     }
 }
 
+
+const char* GetError()
+{
+#if !defined TRACY_NO_FILESELECTOR && !defined __EMSCRIPTEN__
+    return NFD_GetError();
+#else
+    return nullptr;
+#endif
+}
+
 #ifdef __EMSCRIPTEN__
 static std::function<void(const char*)> s_openFileCallback;
 

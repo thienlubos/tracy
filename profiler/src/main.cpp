@@ -1326,6 +1326,8 @@ static void DrawContents()
         ImGui::TextUnformatted( "File selector cannot be displayed." );
         ImGui::TextUnformatted( "Check nfd library implementation for details." );
         ImGui::Separator();
+        ImGui::TextUnformatted( tracy::Fileselector::GetError() );
+        ImGui::Separator();
         if( ImGui::Button( "Ok" ) ) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
