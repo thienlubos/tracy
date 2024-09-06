@@ -696,7 +696,7 @@ static void DrawContents()
                     { 
                         s_config.saveDir = saveDir; SaveConfig();  
                     }
-            
+                }
                 // Modal for file not found warning
                 if (showSaveDirNotExistModal)
                 {
